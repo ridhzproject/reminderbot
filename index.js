@@ -33,8 +33,8 @@ async function connectToWhatsApp() {
         const { connection, lastDisconnect } = update;
         
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi ditutup karena ', lastDisconnect.error, ', reconnect ', shouldReconnect);
+            const shouldReconnect = new Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Koneksi ditutup karena ', lastDisconnect?.error, ', reconnect ', shouldReconnect);
             
             if (shouldReconnect) {
                 connectToWhatsApp();
@@ -55,7 +55,7 @@ async function connectToWhatsApp() {
         await messageHandler.handleMessage(sock, message);
     });
     
-    // Event handler untuk pairing code
+    // Event handler untuk koneksi update (diperbaiki)
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
@@ -69,8 +69,8 @@ async function connectToWhatsApp() {
             sholat.initPrayerScheduler(sock);
             sleep.initSleepScheduler(sock);
         } else if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi ditutup karena ', lastDisconnect.error, ', reconnect ', shouldReconnect);
+            const shouldReconnect = new Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Koneksi ditutup karena ', lastDisconnect?.error, ', reconnect ', shouldReconnect);
             
             if (shouldReconnect) {
                 connectToWhatsApp();
