@@ -1,11 +1,13 @@
 // index.js
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, PHONENUMBER_MCC } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const pino = require('pino');
 const fs = require('fs-extra');
 const path = require('path');
-const readline = require('readline');
+const readline = require('readline'); // Untuk input nomor
+
+// Import handler Anda
 const messageHandler = require('./lib/messageHandler');
 const reminder = require('./lib/reminder');
 const sholat = require('./lib/sholat');
@@ -15,95 +17,107 @@ const sleep = require('./lib/sleep');
 const authDir = path.join(__dirname, 'auth');
 fs.ensureDirSync(authDir);
 
-// Buat interface readline untuk input dari terminal
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+// Fungsi untuk mendapatkan input dari terminal
+function askForPhoneNumber() {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
 
-// Fungsi untuk mengajukan pertanyaan
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
+    return new Promise((resolve) => {
+        rl.question('Masukkan nomor WhatsApp (contoh: 6281234567890): ', (number) => {
+            rl.close();
+            // Bersihkan nomor (hapus spasi, tanda +, dll)
+            const cleanNumber = number.replace(/\D/g, '');
+            resolve(cleanNumber);
+        });
+    });
+}
 
-// Fungsi untuk membuat koneksi WhatsApp
+// Fungsi untuk membuat koneksi WhatsApp dengan pairing code
 async function connectToWhatsApp() {
-    console.log('Menghubungkan ke WhatsApp...');
-    
+    console.log('Menghubungkan ke WhatsApp...\n');
+
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
-    
+
+    // Ambil nomor telepon
+    const phoneNumber = await askForPhoneNumber();
+    if (!phoneNumber) {
+        console.error('❌ Nomor tidak valid. Keluar.');
+        process.exit(1);
+    }
+
     const sock = makeWASocket({
-        logger: pino({ level: 'silent' }), // Menghilangkan log yang tidak perlu
-        printQRInTerminal: false, // Nonaktifkan QR code
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false, // Matikan QR karena pakai pairing code
         auth: state,
         browser: ['WhatsApp Bot', 'Chrome', '10.0.0'],
+        syncFullHistory: false,
     });
-    
-    // Event handler untuk kredensial diperbarui
+
+    // Simpan kredensial saat diperbarui
     sock.ev.on('creds.update', saveCreds);
-    
-    // Event handler untuk koneksi update
+
+    // Tangani update koneksi
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
+        const { connection, lastDisconnect, qr, receivedPendingNotifications } = update;
+
+        if (qr) {
+            console.log('⚠️ QR Code terdeteksi — ini seharusnya tidak muncul saat pairing code aktif.');
+        }
+
         if (connection === 'close') {
-            const shouldReconnect = new Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi ditutup karena ', lastDisconnect?.error, ', reconnect ', shouldReconnect);
-            
+            let shouldReconnect = true;
+            const error = lastDisconnect?.error;
+
+            // Cek apakah error adalah Boom dan bukan logged out
+            if (error instanceof Boom) {
+                shouldReconnect = error.output?.statusCode !== DisconnectReason.loggedOut;
+            }
+
+            console.log(`🔌 Koneksi ditutup karena: ${error?.message || 'unknown'}, reconnect: ${shouldReconnect}`);
+
             if (shouldReconnect) {
-                connectToWhatsApp();
+                await connectToWhatsApp(); // Reconnect
+            } else {
+                console.log('🚫 Akun logout permanen. Hapus folder "auth" dan jalankan ulang.');
             }
-        } else if (connection === 'connecting') {
-            console.log('Menghubungkan...');
-            
-            // Cek apakah sudah ada file auth
-            if (!fs.existsSync(path.join(authDir, 'creds.json'))) {
-                // Minta nomor telepon untuk pairing code
-                const phoneNumber = await question('Masukkan nomor WhatsApp Anda (dengan kode negara, contoh: 628123456789): ');
-                const cleanedNumber = phoneNumber.replace(/[^0-9]/g, ''); // Hanya angka
-                
-                if (cleanedNumber.length < 10) {
-                    console.log('Nomor telepon tidak valid. Silakan coba lagi.');
-                    rl.close();
-                    process.exit(1);
-                }
-                
-                try {
-                    const code = await sock.requestPairingCode(cleanedNumber);
-                    console.log(`\nPairing Code: ${code}`);
-                    console.log('Masukkan pairing code ini di WhatsApp Anda:\n1. Buka WhatsApp\n2. Ketuk Menu > Perangkat Tertaut\n3. Ketuk "Tautkan perangkat"\n4. Masukkan kode di atas\n');
-                    rl.close(); // Tutup interface readline
-                } catch (error) {
-                    console.error('Gagal mendapatkan pairing code:', error);
-                    rl.close();
-                    process.exit(1);
-                }
-            }
-            
         } else if (connection === 'open') {
-            console.log('Terhubung ke WhatsApp!');
-            
+            console.log('✅ Terhubung ke WhatsApp! Bot siap digunakan.\n');
+
             // Inisialisasi scheduler
             reminder.initReminderScheduler(sock);
             sholat.initPrayerScheduler(sock);
             sleep.initSleepScheduler(sock);
+        } else if (update.pairingCode) {
+            console.log(`\n🔑 Pairing Code Anda: ${update.pairingCode}\n`);
+            console.log('📱 Buka WhatsApp di HP Anda > Tiga titik > Perangkat tertaut > Tautkan perangkat > Masukkan kode di atas.\n');
         }
     });
-    
-    // Event handler untuk pesan masuk
+
+    // Tangani pesan masuk
     sock.ev.on('messages.upsert', async (m) => {
         const message = m.messages[0];
-        
-        // Abaikan pesan dari bot sendiri
-        if (message.key.fromMe) return;
-        
-        // Handle pesan
+        if (!message || message.key.fromMe) return;
         await messageHandler.handleMessage(sock, message);
     });
-    
+
+    // Mulai proses pairing
+    console.log('\n📲 Mengirim permintaan pairing ke nomor:', phoneNumber);
+    await sock.waitForConnectionUpdate((update) => !!update.qr || !!update.pairingCode || update.connection === 'open');
+
+    // Kirim request pairing code
+    if (sock.user) {
+        console.log('✅ Sudah terhubung sebelumnya.');
+    } else {
+        await sock.requestPairingCode(phoneNumber);
+    }
+
     return sock;
 }
 
-// Jalankan koneksi
+// Jalankan bot
 connectToWhatsApp().catch(err => {
-    console.error('Error saat menghubungkan ke WhatsApp:', err);
-    rl.close(); // Pastikan interface ditutup jika ada error
+    console.error('❌ Error saat menghubungkan ke WhatsApp:', err);
+    process.exit(1);
 });
