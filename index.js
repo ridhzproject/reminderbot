@@ -4,6 +4,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const { Boom } = require('@hapi/boom');
 const fs = require('fs-extra');
 const path = require('path');
+const readline = require('readline'); // Tambahkan ini
 const messageHandler = require('./lib/messageHandler');
 const reminder = require('./lib/reminder');
 const sholat = require('./lib/sholat');
@@ -12,6 +13,12 @@ const sleep = require('./lib/sleep');
 // Pastikan folder auth ada
 const authDir = path.join(__dirname, 'auth');
 fs.ensureDirSync(authDir);
+
+// Buat interface readline untuk input dari terminal
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
 
 // Fungsi untuk membuat koneksi WhatsApp
 async function connectToWhatsApp() {
@@ -39,8 +46,38 @@ async function connectToWhatsApp() {
             if (shouldReconnect) {
                 connectToWhatsApp();
             }
+        } else if (connection === 'connecting') {
+            console.log('Menghubungkan...');
+            
+            // Minta nomor telepon untuk pairing code
+            rl.question('Masukkan nomor WhatsApp Anda (dengan kode negara, contoh: 628123456789): ', async (number) => {
+                const phoneNumber = number.replace(/[^0-9]/g, ''); // Hanya angka
+                
+                if (phoneNumber.length < 10) {
+                    console.log('Nomor telepon tidak valid. Silakan coba lagi.');
+                    rl.close();
+                    process.exit(1);
+                }
+                
+                try {
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log(`\nPairing Code: ${code}`);
+                    console.log('Masukkan pairing code ini di WhatsApp Anda:\n1. Buka WhatsApp\n2. Ketuk Menu > Perangkat Tertaut\n3. Ketuk "Tautkan perangkat"\n4. Masukkan kode di atas\n');
+                    rl.close(); // Tutup interface readline
+                } catch (error) {
+                    console.error('Gagal mendapatkan pairing code:', error);
+                    rl.close();
+                    process.exit(1);
+                }
+            });
+            
         } else if (connection === 'open') {
-            console.log('Koneksi terbuka!');
+            console.log('Terhubung ke WhatsApp!');
+            
+            // Inisialisasi scheduler
+            reminder.initReminderScheduler(sock);
+            sholat.initPrayerScheduler(sock);
+            sleep.initSleepScheduler(sock);
         }
     });
     
@@ -55,46 +92,11 @@ async function connectToWhatsApp() {
         await messageHandler.handleMessage(sock, message);
     });
     
-    // Event handler untuk koneksi update (diperbaiki)
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (connection === 'connecting') {
-            console.log('Menghubungkan...');
-        } else if (connection === 'open') {
-            console.log('Terhubung ke WhatsApp!');
-            
-            // Inisialisasi scheduler
-            reminder.initReminderScheduler(sock);
-            sholat.initPrayerScheduler(sock);
-            sleep.initSleepScheduler(sock);
-        } else if (connection === 'close') {
-            const shouldReconnect = new Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi ditutup karena ', lastDisconnect?.error, ', reconnect ', shouldReconnect);
-            
-            if (shouldReconnect) {
-                connectToWhatsApp();
-            }
-        }
-        
-        // Jika ada pairing code, tampilkan di console
-        if (update.qr) {
-            console.log('QR Code tersedia, silakan scan dengan WhatsApp Web');
-        }
-    });
-    
-    // Event handler untuk pairing code
-    sock.ev.on('auth.update', (auth) => {
-        if (auth.code) {
-            console.log(`Pairing code: ${auth.code}`);
-            console.log('Masukkan pairing code ini di WhatsApp Anda');
-        }
-    });
-    
     return sock;
 }
 
 // Jalankan koneksi
 connectToWhatsApp().catch(err => {
     console.error('Error saat menghubungkan ke WhatsApp:', err);
+    rl.close(); // Pastikan interface ditutup jika ada error
 });
