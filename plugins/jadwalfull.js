@@ -11,7 +11,7 @@ export default {
   description: 'Menampilkan jadwal lengkap (foto)',
   async execute(sock, msg, args) {
     const from = msg.key.remoteJid;
-    const imagePath = path.join(__dirname, '..', 'lib', 'jadwalxia.jpg');
+    const imagePath = path.join(__dirname, '..', 'lib', 'jadwalxia.png');
     
     // React with hourglass
     await sock.sendMessage(from, {
