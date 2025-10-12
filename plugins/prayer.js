@@ -8,19 +8,50 @@ import {
   getPrayerSettings
 } from '../lib/database.js';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // jadwalsholat
 const jadwalsholat = {
   name: 'jadwalsholat',
   description: 'Melihat jadwal sholat',
   async execute(sock, msg, args) {
     const from = msg.key.remoteJid;
+
+    // React with hourglass
+    await sock.sendMessage(from, {
+      react: { text: '⏳', key: msg.key }
+    });
+    
+    await delay(500);
     
     try {
-      const settings = getPrayerSettings();
-      const today = moment().tz('Asia/Jakarta').format('YYYY/MM/DD');
+      let kotaId;
+      let kotaResponse;
       
+      if (args.length > 0) {
+        // Jika ada argumen kota, cari ID kota tersebut
+        const kota = args.join(' ').toLowerCase();
+        const searchResponse = await axios.get(
+          `https://api.myquran.com/v2/sholat/kota/cari/${encodeURIComponent(kota)}`,
+          { timeout: 10000 }
+        );
+        
+        if (!searchResponse.data.status || !searchResponse.data.data || searchResponse.data.data.length === 0) {
+          return await sock.sendMessage(from, { 
+            text: `❌ Kota "${kota}" tidak ditemukan!\n\nCoba dengan nama kota lain.` 
+          });
+        }
+        
+        kotaId = searchResponse.data.data[0].id;
+      } else {
+        // Jika tidak ada argumen, gunakan kota default
+        const settings = getPrayerSettings();
+        kotaId = settings.kotaId;
+      }
+      
+      const today = moment().tz('Asia/Jakarta').format('YYYY/MM/DD');
       const response = await axios.get(
-        `https://api.myquran.com/v2/sholat/jadwal/${settings.kotaId}/${today}`,
+        `https://api.myquran.com/v2/sholat/jadwal/${kotaId}/${today}`,
         { timeout: 10000 }
       );
       
@@ -46,6 +77,11 @@ const jadwalsholat = {
       text += `🌙 Isya: ${jadwal.isya}\n`;
       
       await sock.sendMessage(from, { text });
+      
+      // React with checkmark
+      await sock.sendMessage(from, {
+        react: { text: '✅', key: msg.key }
+      });
     } catch (err) {
       console.error('Prayer schedule error:', err);
       await sock.sendMessage(from, { 
