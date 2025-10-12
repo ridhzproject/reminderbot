@@ -31,6 +31,12 @@ export default {
 │ • ${prefix}listre
 │ • ${prefix}delre [nomor]
 │
+├─ *Note (Simpan Teks/Media)*
+│ • ${prefix}addnote [id] [teks]
+│ • ${prefix}listnote
+│ • ${prefix}note [id]
+│ • ${prefix}delnote [id]
+│
 ├─ *Pengingat Harian*
 │ • ${prefix}addsubsre [nomor]
 │ • ${prefix}listsubsre
