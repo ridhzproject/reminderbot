@@ -1,0 +1,33 @@
+{
+  "reminders": [
+    {
+      "id": 1760190217066,
+      "text": "Kamis, 16 Oktober penilaian kelompok pantomim",
+      "createdAt": "2025-10-11T13:43:37.066Z"
+    },
+    {
+      "id": 1760192040718,
+      "text": "Senin/Selasa, 13/14 Oktober Ulangan Matematika(Bunga Majemuk)",
+      "createdAt": "2025-10-11T14:14:00.718Z"
+    }
+  ],
+  "subscribersReminder": [
+    "62895348056622@s.whatsapp.net",
+    "6288991790681@s.whatsapp.net"
+  ],
+  "subscribersPrayer": [
+    "62895348056622@s.whatsapp.net",
+    "6288991790681@s.whatsapp.net"
+  ],
+  "subscribersSleep": [
+    "62895348056622@s.whatsapp.net",
+    "6288991790681@s.whatsapp.net"
+  ],
+  "prayerSettings": {
+    "kotaId": "1628",
+    "kotaName": "KAB. TUBAN"
+  },
+  "reminderSettings": {
+    "time": "18:45"
+  }
+}
