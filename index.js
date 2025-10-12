@@ -138,8 +138,11 @@ function setupCronJobs(sock) {
     timezone: 'Asia/Jakarta'
   });
 
-  console.log('✓ Cron jobs initialized');
-}Jakarta'
+  // Lesson reminder setiap 1 menit
+  cron.schedule('* * * * *', async () => {
+    await sendLessonReminder(sock);
+  }, {
+    timezone: 'Asia/Jakarta'
   });
 
   console.log('✓ Cron jobs initialized');
