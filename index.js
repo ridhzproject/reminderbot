@@ -9,6 +9,7 @@ import pino from 'pino';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
 import { initDB } from './lib/database.js';
+import { initNoteDB } from './lib/notedb.js';
 import { sendDailyReminder, sendPrayerReminder, sendSleepReminder } from './lib/reminder.js';
 import { loadAllCommands } from './lib/commandLoader.js';
 
@@ -161,6 +162,7 @@ function setupCronJobs(sock) {
 // Initialize
 (async () => {
   await initDB();
+  await initNoteDB();
   await loadPlugins();
   await connectToWhatsApp();
 })();
