@@ -57,6 +57,20 @@ export default {
 │ • ${prefix}listsubsleep
 │ • ${prefix}delsubsleep [nomor]
 │
+├─ *Google Drive*
+│ • ${prefix}gdrive
+│ • ${prefix}gupload [balas media/dokumen]
+│ • ${prefix}glist
+│ • ${prefix}gview [file_id]
+│ • ${prefix}gdownload [file_id]
+│ • ${prefix}gmkdir [nama_folder]
+│ • ${prefix}gdelete [file_id]
+│ • ${prefix}gsearch [keyword]
+│ • ${prefix}gaddfolder [folder_id] [nama]
+│ • ${prefix}gfolders
+│ • ${prefix}gsetfolder [nomor]
+│ • ${prefix}gremovefolder [nomor]
+│
 ╰━━━━━━━━━━━━━━━━━╯
 
 _Bot ini dibuat untuk memudahkan jadwal dan reminder sekolah_`;
