@@ -72,7 +72,16 @@ async function connectToWhatsApp() {
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
+    if (!msg.message) return;
+
+    // Baca setiap pesan yang masuk (tandai centang biru)
+    if (!msg.key.fromMe) {
+      await sock.readMessages([{
+        remoteJid: msg.key.remoteJid,
+        id: msg.key.id,
+        participant: msg.key.participant // untuk grup
+      }]);
+    }
 
     const from = msg.key.remoteJid;
     const messageType = Object.keys(msg.message)[0];
@@ -97,9 +106,10 @@ async function connectToWhatsApp() {
         await command.execute(sock, msg, args);
       } catch (err) {
         console.error('Command error:', err);
-        await sock.sendMessage(from, { 
+        const sentMsg = await sock.sendMessage(from, { 
           text: '❌ Terjadi kesalahan saat menjalankan perintah.' 
         });
+        await sock.readMessages([sentMsg.key]);
       }
     } else {
       console.log(`❓ Unknown command: ${cmdName}`);
