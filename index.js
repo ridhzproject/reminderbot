@@ -12,7 +12,12 @@ import { initDB } from './lib/database.js';
 import { initNoteDB } from './lib/notedb.js';
 import { initGoogleDrive } from './lib/gdrive.js';
 import { initGDriveConfig } from './lib/gdriveConfig.js';
-import { sendDailyReminder, sendPrayerReminder, sendSleepReminder } from './lib/reminder.js';
+import { 
+  sendDailyReminder, 
+  sendPrayerReminder, 
+  sendSleepReminder,
+  sendLessonReminder  // TAMBAHKAN INI
+} from './lib/reminder.js';
 import { loadAllCommands } from './lib/commandLoader.js';
 
 dotenv.config();
@@ -24,6 +29,7 @@ let commands = new Map();
 async function loadPlugins() {
   try {
     commands = loadAllCommands();
+    console.log(`✓ Loaded ${commands.size} commands`);
     return true;
   } catch (err) {
     console.error('Failed to load commands:', err);
@@ -70,6 +76,7 @@ async function connectToWhatsApp() {
       }
     } else if (connection === 'open') {
       console.log('✓ Connected to WhatsApp');
+      console.log('✓ Bot is ready!');
     }
   });
 
@@ -126,16 +133,19 @@ async function connectToWhatsApp() {
 }
 
 function setupCronJobs(sock) {
+  console.log('\n🕐 Setting up cron jobs...');
+  
   // Daily reminder at 18:45
   const reminderTime = process.env.REMINDER_TIME || '18:45';
   const [hour, minute] = reminderTime.split(':');
   
   cron.schedule(`${minute} ${hour} * * *`, async () => {
-    console.log('Running daily reminder...');
+    console.log('📅 Running daily reminder...');
     await sendDailyReminder(sock);
   }, {
     timezone: 'Asia/Jakarta'
   });
+  console.log(`  ✓ Daily reminder scheduled at ${reminderTime}`);
 
   // Prayer reminders (check every 5 minutes)
   cron.schedule('*/5 * * * *', async () => {
@@ -143,30 +153,44 @@ function setupCronJobs(sock) {
   }, {
     timezone: 'Asia/Jakarta'
   });
+  console.log('  ✓ Prayer reminder (every 5 minutes)');
 
-  // Sleep reminder (check every minute between 21:00-21:35)
-  cron.schedule('* 21 * * *', async () => {
+  // Sleep reminder (check every minute - hanya aktif jam 21:00-21:35)
+  cron.schedule('* * * * *', async () => {
     await sendSleepReminder(sock);
   }, {
     timezone: 'Asia/Jakarta'
   });
+  console.log('  ✓ Sleep reminder (every minute, 21:00-21:35)');
 
-  // Lesson reminder setiap 1 menit
+  // Lesson reminder (check every minute)
   cron.schedule('* * * * *', async () => {
     await sendLessonReminder(sock);
   }, {
     timezone: 'Asia/Jakarta'
   });
+  console.log('  ✓ Lesson reminder (every minute during school hours)');
 
-  console.log('✓ Cron jobs initialized');
+  console.log('✓ All cron jobs initialized\n');
 }
 
 // Initialize
 (async () => {
+  console.log('🚀 Starting bot...\n');
+  
   await initDB();
+  console.log('✓ Database initialized');
+  
   await initNoteDB();
+  console.log('✓ Note database initialized');
+  
   await initGDriveConfig();
+  console.log('✓ Google Drive config initialized');
+  
   await initGoogleDrive();
+  console.log('✓ Google Drive initialized');
+  
   await loadPlugins();
+  
   await connectToWhatsApp();
 })();
