@@ -1,4 +1,5 @@
-import fs from 'fs/promises';
+import fs from 'fs'; // <<< GANTI INI: Untuk stream (createWriteStream, createReadStream)
+import fsp from 'fs/promises'; // <<< GANTI INI: Untuk promise-based (writeFile, unlink, access)
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
@@ -38,7 +39,8 @@ function isOwner(msg) {
     console.error("OWNER_NUMBER is not set in .env file.");
     return false;
   }
-  const senderJid = msg.key.remoteJid;
+  // Menangani group chat dan private chat
+  const senderJid = msg.key.participant || msg.key.remoteJid;
   const senderNumber = senderJid.split('@')[0];
   return senderNumber === ownerNumber;
 }
@@ -61,6 +63,8 @@ const stats = {
     const usedMem = totalMem - freeMem;
     const cpu = os.cpus()[0];
     
+    // Kirim pesan dulu, lalu hitung latency
+    const sentMsg = await sock.sendMessage(from, { text: 'Mengambil data...' });
     const latency = Date.now() - startTime;
     
     const statsText = `╭━━━『 *BOT STATS* 』━━━╮
@@ -82,8 +86,8 @@ const stats = {
 │  • *Response*: ${latency} ms
 │
 ╰━━━━━━━━━━━━━━━━━╯`;
-
-    await sock.sendMessage(from, { text: statsText });
+    // Edit pesan yang tadi dikirim
+    await sock.sendMessage(from, { text: statsText, edit: sentMsg.key });
   }
 };
 
@@ -103,22 +107,24 @@ const backup = {
 
     const outputFileName = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
     const outputPath = path.join(process.cwd(), outputFileName);
+    
+    // Menggunakan fs dari 'fs', bukan 'fs/promises'
     const output = fs.createWriteStream(outputPath);
     const archive = archiver('zip', {
-      zlib: { level: 9 } // Level kompresi tertinggi
+      zlib: { level: 9 }
     });
 
     output.on('close', async () => {
       console.log(`Backup created: ${outputFileName} (${archive.pointer()} total bytes)`);
       
       await sock.sendMessage(from, {
-        document: { stream: fs.createReadStream(outputPath) },
+        document: fs.readFileSync(outputPath), // Menggunakan readFileSync untuk kompatibilitas lebih baik
         mimetype: 'application/zip',
         fileName: outputFileName
       });
       
-      // Hapus file zip setelah dikirim
-      await fs.unlink(outputPath);
+      // Hapus file zip setelah dikirim menggunakan fsp dari 'fs/promises'
+      await fsp.unlink(outputPath);
     });
 
     archive.on('warning', (err) => {
@@ -135,15 +141,14 @@ const backup = {
 
     archive.pipe(output);
 
-    // Menambahkan semua file dan folder kecuali yang dikecualikan
     archive.glob('**/*', {
       cwd: process.cwd(),
       ignore: [
         'node_modules/**',
         'package-lock.json',
         '.npm/**',
-        'auth_info/**', // Folder sesi, sebaiknya jangan di-backup
-        outputFileName // Jangan backup file itu sendiri
+        'auth_info/**',
+        outputFileName
       ]
     });
 
@@ -174,11 +179,9 @@ const edit = {
     const fullPath = path.join(process.cwd(), filePath);
 
     try {
-      // Cek apakah file ada
-      await fs.access(fullPath);
-      
-      // Tulis konten baru ke file
-      await fs.writeFile(fullPath, newContent, 'utf8');
+      // Menggunakan fsp dari 'fs/promises'
+      await fsp.access(fullPath);
+      await fsp.writeFile(fullPath, newContent, 'utf8');
       
       await sock.sendMessage(from, { text: `✅ Berhasil mengedit file: ${filePath}` });
       console.log(`File ${filePath} has been edited by owner.`);
@@ -196,4 +199,3 @@ const edit = {
 
 
 export { stats, backup, edit };
-
