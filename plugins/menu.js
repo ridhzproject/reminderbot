@@ -10,15 +10,16 @@ export default {
     const from = msg.key.remoteJid;
     const botName = process.env.BOT_NAME || 'Bot Sekolah';
     const prefix = process.env.PREFIX || '.';
-    
-    // React with hourglass
+
+    // React dengan emoji jam pasir
     await sock.sendMessage(from, {
       react: { text: '⏳', key: msg.key }
     });
-    
+
     await delay(500);
-    
-    const menuText = `╭━━━『 *${botName}* 』━━━╮
+
+    const menuText = `
+╭━━━〔 *${botName}* 〕━━━╮
 │
 │ 📚 *MENU UTAMA*
 │
@@ -71,13 +72,25 @@ export default {
 │ • ${prefix}gsetfolder [nomor]
 │ • ${prefix}gremovefolder [nomor]
 │
-╰━━━━━━━━━━━━━━━━━╯
-
-_Bot ini dibuat untuk memudahkan jadwal dan reminder sekolah_`;
+├─ *MEDIA & TOOLS*
+│ • ${prefix}ytsearch [query]
+│ • ${prefix}ytmp3 [url]
+│ • ${prefix}tiktok [url]
+│ • ${prefix}instagram [url]
+│ • ${prefix}uploadimage [reply gambar]
+│
+├─ *System & Owner*
+│ • ${prefix}stats
+│ • ${prefix}backup
+│ • ${prefix}edit [file] [teks]
+│
+╰━━━━━━━━━━━━━━━━━━━━╯
+_Bot ini dibuat untuk memudahkan jadwal dan reminder sekolah_
+`;
 
     await sock.sendMessage(from, { text: menuText });
-    
-    // React with checkmark
+
+    // React dengan emoji centang
     await sock.sendMessage(from, {
       react: { text: '✅', key: msg.key }
     });
