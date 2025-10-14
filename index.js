@@ -133,7 +133,7 @@ async function connectToWhatsApp() {
 
   // Pairing code
   if (!sock.authState.creds.registered) {
-    const phoneNumber = process.env.OWNER_NUMBER.replace(/[^0-9]/g, '');
+    const phoneNumber = process.env.BOT_NUMBER.replace(/[^0-9]/g, '');
     
     setTimeout(async () => {
       const code = await sock.requestPairingCode(phoneNumber);
