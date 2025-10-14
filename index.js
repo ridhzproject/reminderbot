@@ -8,6 +8,7 @@ import makeWASocket, {
 import pino from 'pino';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
+import os from 'os';
 import { initDB } from './lib/database.js';
 import { initNoteDB } from './lib/notedb.js';
 import { initGoogleDrive } from './lib/gdrive.js';
@@ -16,7 +17,7 @@ import {
   sendDailyReminder, 
   sendPrayerReminder, 
   sendSleepReminder,
-  sendLessonReminder  // TAMBAHKAN INI
+  sendLessonReminder
 } from './lib/reminder.js';
 import { loadAllCommands } from './lib/commandLoader.js';
 
@@ -24,6 +25,84 @@ dotenv.config();
 
 const PREFIX = process.env.PREFIX || '.';
 let commands = new Map();
+
+// Fungsi untuk sleep/delay
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Fungsi untuk mendapatkan uptime dalam format yang bagus
+function formatUptime(seconds) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  
+  return parts.join(' ') || '0m';
+}
+
+// Fungsi untuk format memory
+function formatMemory(bytes) {
+  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+// Splash screen seperti neofetch
+async function showSplashScreen() {
+  const colors = {
+    reset: '\x1b[0m',
+    bright: '\x1b[1m',
+    cyan: '\x1b[36m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+    magenta: '\x1b[35m',
+    white: '\x1b[37m'
+  };
+
+  const logo = `
+${colors.cyan}${colors.bright}
+    ██╗    ██╗██╗  ██╗ █████╗ ████████╗███████╗ █████╗ ██████╗ ██████╗ 
+    ██║    ██║██║  ██║██╔══██╗╚══██╔══╝██╔════╝██╔══██╗██╔══██╗██╔══██╗
+    ██║ █╗ ██║███████║███████║   ██║   ███████╗███████║██████╔╝██████╔╝
+    ██║███╗██║██╔══██║██╔══██║   ██║   ╚════██║██╔══██║██╔═══╝ ██╔═══╝ 
+    ╚███╔███╔╝██║  ██║██║  ██║   ██║   ███████║██║  ██║██║     ██║     
+     ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝     
+${colors.reset}`;
+
+  const sysInfo = {
+    'OS': `${os.type()} ${os.release()}`,
+    'Platform': os.platform(),
+    'Architecture': os.arch(),
+    'CPU': os.cpus()[0].model,
+    'Cores': os.cpus().length,
+    'Memory': `${formatMemory(os.totalmem() - os.freemem())} / ${formatMemory(os.totalmem())}`,
+    'Uptime': formatUptime(os.uptime()),
+    'Node Version': process.version,
+    'Bot Version': '2.0.0',
+    'Owner': process.env.OWNER_NUMBER || 'Not Set'
+  };
+
+  console.clear();
+  console.log(logo);
+  console.log(`${colors.green}${colors.bright}    WhatsApp Bot - School Assistant${colors.reset}`);
+  console.log(`${colors.yellow}    ════════════════════════════════════════════════════════════${colors.reset}\n`);
+
+  const maxKeyLength = Math.max(...Object.keys(sysInfo).map(k => k.length));
+  
+  for (const [key, value] of Object.entries(sysInfo)) {
+    const padding = ' '.repeat(maxKeyLength - key.length);
+    console.log(`    ${colors.cyan}${key}${padding}${colors.reset} ${colors.white}:${colors.reset} ${colors.magenta}${value}${colors.reset}`);
+  }
+
+  console.log(`\n${colors.yellow}    ════════════════════════════════════════════════════════════${colors.reset}`);
+  console.log(`${colors.green}${colors.bright}    🚀 Initializing bot in 4 seconds...${colors.reset}\n`);
+  
+  await sleep(4000);
+}
 
 // Load plugins
 async function loadPlugins() {
@@ -176,6 +255,9 @@ function setupCronJobs(sock) {
 
 // Initialize
 (async () => {
+  // Tampilkan splash screen terlebih dahulu
+  await showSplashScreen();
+  
   console.log('🚀 Starting bot...\n');
   
   await initDB();
